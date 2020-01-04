@@ -19,7 +19,9 @@ import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
 import javax.persistence.Column;
+import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.TimeUnit;
 
@@ -305,8 +307,8 @@ public class ManageServiceImpl implements ManageService{
     public SkuInfo getSkuInfo(String skuId) {
         // redisson 解决分布式锁、
         return getSkuInfoRedisson(skuId);
-// 使用redis--set 命令做分布式锁！
-//        return getSkuInfoRedist(skuId);
+    // 使用redis--set 命令做分布式锁！
+        //return getSkuInfoRedist(skuId);
     }
 
     private SkuInfo getSkuInfoRedisson(String skuId) {
@@ -325,12 +327,10 @@ public class ManageServiceImpl implements ManageService{
                     skuInfo= JSON.parseObject(userJson, SkuInfo.class);
                   return  skuInfo;
                 }
-
             }else {
                 //从数据库中获取数据   加redisson 锁
                 Config config = new Config();
                 config.useSingleServer().setAddress("redis://192.168.206.226:6379");
-
                 RedissonClient redissonClient = Redisson.create(config);
                 lock = redissonClient.getLock("mylock");
 
@@ -359,8 +359,9 @@ public class ManageServiceImpl implements ManageService{
 
     private SkuInfo getSkuInfoRedist(String skuId) {
         SkuInfo skuInfo = null;
+        Jedis jedis =null;
         try {
-            Jedis jedis = redisUtil.getJedis();
+             jedis = redisUtil.getJedis();
             String skuInfoKey = ManageConst.SKUKEY_PREFIX+skuId+ManageConst.SKUKEY_SUFFIX;
 
             String skuJson = jedis.get(skuInfoKey);
@@ -368,36 +369,43 @@ public class ManageServiceImpl implements ManageService{
                 // 没有数据 ,需要加锁！取出完数据，还要放入缓存中，下次直接从缓存中取得即可！
                 String skuLockKey=ManageConst.SKUKEY_PREFIX+skuId+ManageConst.SKULOCK_SUFFIX;
                 // 生成锁
-                String lockKey   = jedis.setex(skuLockKey, ManageConst.SKULOCK_EXPIRE_PX, "OK");
+//                String lockKey   = jedis.setex(skuLockKey, ManageConst.SKULOCK_EXPIRE_PX, "OK");
+                String token = UUID.randomUUID().toString().replaceAll("-", "");
+               //skuLockKey ，token         token  是vules
+                String lockKey =  jedis.set(skuLockKey,token,"NX","PX",ManageConst.SKULOCK_EXPIRE_PX);
                      if("OK".equals(lockKey)){
                          System.out.println("获取锁！");
-
                          skuInfo = getSkuInfoDB(skuId);
                          // 将是数据放入缓存
                          // 将对象转换成字符串
                          String skuRedisStr = JSON.toJSONString(skuInfo);
                          jedis.setex(skuInfoKey,ManageConst.SKUKEY_TIMEOUT,skuRedisStr);
-                         jedis.close();
-                         return skuInfo;
+                         /**
+                          *  如果出现 在设置锁后 的业务太复杂导致 锁 失效， 业务完成时 把其他本来不是自己的锁给解了
+                          *  就使用lua 脚本解决  赋值   匹配 锁的 key 和value 如果一致 进行解锁
+                          */
+                         String script ="if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+                         jedis.eval(script, Collections.singletonList(skuLockKey),Collections.singletonList(token));
 
+                         return skuInfo;
                      }else{
-                         System.out.println("等待！");
+                         System.out.println("等待");
                          // 等待
                          Thread.sleep(1000);
                          // 自旋
                          return getSkuInfo(skuId);
                      }
-
             }else {
                 // 缓冲里有数据
               skuInfo  = JSON.parseObject(skuJson, SkuInfo.class);
-                 jedis.close();
               return skuInfo;
             }
-
         } catch (Exception e) {
               e.printStackTrace();
-
+        }finally {
+            if(jedis!=null){
+                jedis.close();
+            }
         }
         // 从数据库返回数据
         return getSkuInfoDB(skuId);
@@ -410,8 +418,16 @@ public class ManageServiceImpl implements ManageService{
         SkuInfo skuInfo = skuInfoMapper.selectByPrimaryKey(skuId);
         SkuImage skuImage = new SkuImage();
         skuImage.setSkuId(skuId);
+        //获取图片
         List<SkuImage> skuImageList = skuImageMapper.select(skuImage);
-        skuInfo.setSkuImageList(skuImageList);
+        if(skuImageList !=null || skuImageList.size()>0){
+            skuInfo.setSkuImageList(skuImageList);
+        }
+    //查询平台属性  在详情页面放入
+        SkuAttrValue skuAttrValue = new SkuAttrValue();
+        skuAttrValue.setSkuId(skuId);
+        List<SkuAttrValue> skuAttrValues = skuAttrValueMapper.select(skuAttrValue);
+        skuInfo.setSkuAttrValueList(skuAttrValues);
         return skuInfo;
     }
 

@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 import tk.mybatis.spring.annotation.MapperScan;
 
 @SpringBootApplication
-
 @MapperScan(basePackages = "com.atguigu.gmall.manage.mapper")
 @EnableTransactionManagement
 @ComponentScan(basePackages = "com.atguigu.gmall.config")

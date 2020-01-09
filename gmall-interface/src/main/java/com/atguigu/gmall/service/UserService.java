@@ -21,4 +21,20 @@ public interface UserService {
      * @return
      */
     List<UserAddress> findUserAddressByUserId(String userId);
+
+
+    /**
+     *
+     * @param userInfo
+     * @return
+     */
+    UserInfo login(UserInfo userInfo);
+
+
+    /**
+     * 通过 userId 在 redis 中获取 UserInfo
+     * @param userId
+     * @return
+     */
+    UserInfo verfiy(String userId);
 }

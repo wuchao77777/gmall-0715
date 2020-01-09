@@ -2,19 +2,20 @@ package com.atguigu.gmall.manage.Service;
 
 import com.alibaba.dubbo.config.annotation.Service;
 import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+
 import com.atguigu.gmall.bean.*;
 import com.atguigu.gmall.config.RedisUtil;
 import com.atguigu.gmall.manage.manage.constant.ManageConst;
 import com.atguigu.gmall.manage.mapper.*;
 import com.atguigu.gmall.service.ManageService;
+import org.apache.commons.lang3.StringUtils;
 import org.redisson.Redisson;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+
 import redis.clients.jedis.Jedis;
 
 import javax.annotation.Resource;
@@ -376,11 +377,16 @@ public class ManageServiceImpl implements ManageService{
                      if("OK".equals(lockKey)){
                          System.out.println("获取锁！");
                          skuInfo = getSkuInfoDB(skuId);
-                         // 将是数据放入缓存
-                         // 将对象转换成字符串
-                         String skuRedisStr = JSON.toJSONString(skuInfo);
-                         jedis.setex(skuInfoKey,ManageConst.SKUKEY_TIMEOUT,skuRedisStr);
-                         /**
+                         if(skuInfo==null){
+                             jedis.setex(skuInfoKey,ManageConst.SKUKEY_TIMEOUT,"");
+                         }else {
+
+                             // 将是数据放入缓存
+                             // 将对象转换成字符串
+                             String skuRedisStr = JSON.toJSONString(skuInfo);
+                             jedis.setex(skuInfoKey, ManageConst.SKUKEY_TIMEOUT, skuRedisStr);
+                         }
+                        /*
                           *  如果出现 在设置锁后 的业务太复杂导致 锁 失效， 业务完成时 把其他本来不是自己的锁给解了
                           *  就使用lua 脚本解决  赋值   匹配 锁的 key 和value 如果一致 进行解锁
                           */
@@ -443,5 +449,12 @@ public class ManageServiceImpl implements ManageService{
     @Override
     public List<SkuSaleAttrValue> getSkuSaleAttrValueListBySpu(String spuId) {
         return skuSaleAttrValueMapper.selectSkuSaleAttrValueListBySpu(spuId);
+    }
+
+    @Override
+    public List<BaseAttrInfo> getAttrList(List<String> attrValueIdList) {
+        String attrValueIds = StringUtils.join(attrValueIdList.toArray(), ",");
+       return  baseAttrInfoMapper.selectAttrInfoListByIds(attrValueIds);
+
     }
 }

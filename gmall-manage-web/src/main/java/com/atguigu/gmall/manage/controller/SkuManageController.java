@@ -9,6 +9,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URL;
 import java.util.List;
 
 @RestController
@@ -44,7 +45,6 @@ public class SkuManageController {
     @RequestMapping("saveSkuInfo")
     public String saveSkuInfo(@RequestBody SkuInfo skuInfo){
         manageService.saveSkuInfo(skuInfo);
-
         return "OK";
     }
 
@@ -59,13 +59,10 @@ public class SkuManageController {
     public  void onSale(String skuId){
      //查出 skuinfo
        SkuInfo skuInfo = manageService.getSkuInfo(skuId);
-
        SkuLsInfo skuLsInfo = new SkuLsInfo();
-
        // 属性拷贝
        BeanUtils.copyProperties(skuInfo,skuLsInfo);
-
-       //传到 kibana
+       //传到 ES
        listService.saveSkuInfo(skuLsInfo);
    }
 

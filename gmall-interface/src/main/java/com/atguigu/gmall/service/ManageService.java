@@ -1,6 +1,7 @@
 package com.atguigu.gmall.service;
 
 import com.atguigu.gmall.bean.*;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -115,4 +116,12 @@ public interface ManageService {
      * @return
      */
     List<SkuSaleAttrValue> getSkuSaleAttrValueListBySpu(String spuId);
+
+
+    /**
+     * 根据 平台属性值的ID  查询出平台属性的名字 以及 平台属性值的名字
+     * @param attrValueIdList
+     * @return
+     */
+    List<BaseAttrInfo> getAttrList( List<String> attrValueIdList);
 }

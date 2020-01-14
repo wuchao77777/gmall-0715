@@ -9,6 +9,8 @@ class GmallOrderWebApplicationTests {
 
 	@Test
 	void contextLoads() {
+
+
 	}
 
 }

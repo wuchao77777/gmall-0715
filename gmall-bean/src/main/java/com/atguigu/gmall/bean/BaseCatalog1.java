@@ -5,6 +5,9 @@ import lombok.Data;
 import javax.persistence.Column;
 import javax.persistence.Id;
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+
 @Data
 public class BaseCatalog1  implements Serializable {
     @Id
@@ -12,5 +15,6 @@ public class BaseCatalog1  implements Serializable {
     private String id;
     @Column
     private String name;
+
 
 }

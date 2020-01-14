@@ -4,22 +4,19 @@ package com.atguigu.gmall.order.controller;
 
 
 import com.alibaba.dubbo.config.annotation.Reference;
+import com.alibaba.fastjson.JSON;
 import com.atguigu.gmall.bean.*;
 import com.atguigu.gmall.config.LoginRequire;
-import com.atguigu.gmall.service.CartService;
-import com.atguigu.gmall.service.ManageService;
-import com.atguigu.gmall.service.OrderService;
-import com.atguigu.gmall.service.UserService;
+import com.atguigu.gmall.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Controller
 public class OrderController {
@@ -37,6 +34,8 @@ public class OrderController {
    @Reference
    private  ManageService manageService;
 
+   @Reference
+   private PaymentService paymentService;
 
      //结算
     // http://localhost:8081/trade?userId=1
@@ -76,7 +75,7 @@ public class OrderController {
         request.setAttribute("tradeNo",tradeNo);
         return  "trade";
     }
-// http://trade.gmall.com/submitOrder
+    // http://trade.gmall.com/submitOrder
     // @RequestBody 将json --- > JavaObject
         @RequestMapping("submitOrder")
         @LoginRequire
@@ -126,8 +125,32 @@ public class OrderController {
 
             //返回订单的id
             String orderId = orderService.saveOrderInfo(orderInfo);
+
+            // 准备发送延迟队列  订单15秒之后就会自动把订单状态改为 关闭
+            paymentService.closeOrderInfo(outTradeNo,15);
             // 重定向到支付模块！
             return "redirect://payment.gmall.com/index?orderId="+orderId;
         }
+
+
+    // http://trade.gmall.com/orderSplit?orderId=xxx&wareSkuMap=xxx
+    @RequestMapping("orderSplit")
+    @ResponseBody
+    public String orderSplit(HttpServletRequest request){
+        String orderId = request.getParameter("orderId");
+        // [{"wareId":"1","skuIds":["2","10"]},{"wareId":"2","skuIds":["3"]}]
+        String wareSkuMap = request.getParameter("wareSkuMap");
+        // 调用服务层的拆单方法
+        List<OrderInfo> subOrderInfoList = orderService.orderSplit(orderId,wareSkuMap);
+
+        // 声明一个存储map 的集合
+        ArrayList<Map> mapArrayList = new ArrayList<>();
+        for (OrderInfo orderInfo : subOrderInfoList) {
+            Map map = orderService.initWareOrder(orderInfo);
+            mapArrayList.add(map);
+        }
+       return JSON.toJSONString(mapArrayList);
+    }
+
 
 }
